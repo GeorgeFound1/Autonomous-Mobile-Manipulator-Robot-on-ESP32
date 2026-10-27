@@ -5,10 +5,12 @@
 
 static volatile bool sonarResetRequested = false;
 
+// Request reset of sonar filter
 void resetSonarBuffer() {
     sonarResetRequested = true;
 }
 
+// Read ultrasonic sensor and filter distance
 float RobotDriver::getDistance() {
     static unsigned long lastTrigger = 0;
     static float readings[5] = {400, 400, 400, 400, 400};
@@ -91,6 +93,7 @@ float RobotDriver::getDistance() {
     return lastMedian;
 }
 
+// Convert camera target to world coordinates
 void calculateCoords(const TargetData& target, const RobotDriver& myRobot, TargetCoords *coords) {
     Coords currentRobotCoords = myRobot.getCoords();
     
@@ -102,6 +105,7 @@ void calculateCoords(const TargetData& target, const RobotDriver& myRobot, Targe
     return;
 }
 
+// Target search state machine: drive to wall, then snake movement
 void RobotDriver::searchTarget(float obstacleDistance) {
 
     static SearchState search = DRIVE_TO_WALL_1;
@@ -109,7 +113,8 @@ void RobotDriver::searchTarget(float obstacleDistance) {
     const double snakeStepDistance = 20;
     static int turnDirection = -1;
 
-bool isDrivingToWall = (search == DRIVE_TO_WALL_1 ||
+    // Some search states should not be interrupted by sonar
+    bool isDrivingToWall = (search == DRIVE_TO_WALL_1 ||
                         search == TURN_90_AFTER_WALL_1 ||
                         search == DRIVE_TO_WALL_2 ||
                         search == TURN_180_AT_CORNER ||
@@ -187,6 +192,7 @@ bool isDrivingToWall = (search == DRIVE_TO_WALL_1 ||
 TargetData currentTarget = {false, 0.0, 0.0};
 unsigned long lastTargetUpdateTime = 0;
 
+// Update camera target and mark it lost after timeout
 void updateTargetData() {
     CameraData packet;
     if (dataUnpackage(&packet)) {
@@ -198,6 +204,7 @@ void updateTargetData() {
     }
 }
 
+// Normalize angle to -180..180 degrees
 double normalizeAngle(double angle) {
     while (angle > 180.0) angle -= 360.0;
     while (angle < -180.0) angle += 360.0;

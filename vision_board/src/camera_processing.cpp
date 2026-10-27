@@ -1,6 +1,6 @@
 #include "camera_processing.hpp"
 
-
+// Convert RGB565 camera pixel to RGB888
 inline void getRGB(uint8_t *r, uint8_t *g, uint8_t *b, const uint8_t byte1, uint8_t byte2) {
 
     *r = byte1 & 0xF8;
@@ -9,8 +9,9 @@ inline void getRGB(uint8_t *r, uint8_t *g, uint8_t *b, const uint8_t byte1, uint
 
 }
 
+// Estimate distance from target height
 float howFar(const int width, const int height) {
-    float focalLength = 575.0f; //temporarily
+    float focalLength = 575.0f; 
     const float realWidth = 1.5f; 
     const float pixelWidth = (float)width;
     const float realHeight = 4.6f;
@@ -29,6 +30,7 @@ float howFar(const int width, const int height) {
 
 }
 
+// Convert pixel offset from center to degrees
 float whatAngle(const int centerX) {
 
     const float camFOV = 60.0f; 
@@ -42,6 +44,7 @@ float whatAngle(const int centerX) {
     return angle;
 }
 
+// Check if pixel looks like target color
 inline bool isTargetColor(const uint8_t r, const uint8_t g, const uint8_t b) {
     uint16_t sum = r + g + b;
     if (sum < 80) return false;
@@ -56,13 +59,15 @@ inline bool isTargetColor(const uint8_t r, const uint8_t g, const uint8_t b) {
     return true;
 }
 
-bool setCoords (camera_fb_t *fb, float *smoothedDistance, float *smoothedAngle) {
+// Find target box and calculate smoothed distance/angle
+bool setCoords(camera_fb_t *fb, float *smoothedDistance, float *smoothedAngle) {
 
     if (!fb || !fb->buf || !smoothedDistance || !smoothedAngle) return false;
 
     uint16_t rowPixels[480] = {0};
     uint16_t colPixels[640] = {0};
 
+    // Search only in the lower part of frame
     for (int y = (fb->height / 3); y < fb->height; y++) {
         for (int x = 0; x < fb->width; x++) {
 
@@ -79,6 +84,7 @@ bool setCoords (camera_fb_t *fb, float *smoothedDistance, float *smoothedAngle) 
         }
     }
 
+    // Find bounding box with noise filtering
     const int noiseThresholdY = 10; 
     const int noiseThresholdX = 4;
     const int consecutiveNeeded = 3;
@@ -166,6 +172,7 @@ bool setCoords (camera_fb_t *fb, float *smoothedDistance, float *smoothedAngle) 
 
     float distance = howFar(width, height);
     float angle = whatAngle(centerX);
+    // Smooth distance and angle to reduce noise
     const float alpha = 0.8f;
 
     if (*smoothedDistance == 0.0f) {

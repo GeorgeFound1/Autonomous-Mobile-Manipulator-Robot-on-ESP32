@@ -4,12 +4,14 @@
 #include <Arduino.h>
 #include "pin_modes.hpp"
 
+// Robot position: x, y in cm, angle in degrees
 struct Coords {
     double x = 0.0;
     double y = 0.0;
     double angle = 0.0;
 };
 
+// Target data from camera
 struct TargetData {
     bool detected;
     double distance;
@@ -27,8 +29,8 @@ public:
     void goToCoords(const double x1, const double y1);
     void searchTarget(float obstacleDistance);
 
-    void update(float obstacleDistance); // вызывать каждый loop(), когда isBusy()
-    bool isBusy() const { return motionState != MotionState::GOING_STRAIGHT ? false : true; }
+    void update(float obstacleDistance); // Call every loop while moving
+    bool isBusy() const { return motionState != MotionState::GOING_STRAIGHT ? false : true; } // True while straight movement is active
 
     Coords getCoords() const { return currentCoords; }
     float getDistance();
@@ -36,6 +38,7 @@ public:
 
     void letTurn(const double angle);
     void startGoStraight(const double distance);
+    void goBack(double distanceCm);
 
 private:
     Coords currentCoords;
@@ -43,7 +46,7 @@ private:
     enum class MotionState { IDLE, GOING_STRAIGHT };
     MotionState motionState = MotionState::IDLE;
 
-    // персистентное состояние неблокирующего goStraight (было локальными переменными в while)
+    // State for non-blocking straight movement
     long gsStartLeft = 0;
     long gsStartRight = 0;
     long gsTargetTicks = 0;

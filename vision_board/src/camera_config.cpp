@@ -32,24 +32,27 @@ bool initCamera() {
     
     config.fb_count = 1;
 
+    // Initialize camera driver
     esp_err_t err = esp_camera_init(&config);
     if (err != ESP_OK) {
         Serial.printf("Camera init failed with error 0x%x\n", err);
         return false;
     }
 
+    // Discard first frames to stabilize camera
     for (int i = 0; i < 10; i++) {
         camera_fb_t * fb = esp_camera_fb_get();
         if (fb) esp_camera_fb_return(fb);
         delay(50);
     }
 
+    // Disable auto image controls for stable color detection
     sensor_t * s = esp_camera_sensor_get();
     if (s) {
 
-        s->set_gain_ctrl(s, 0);       // Отключить автоусиление
-        s->set_exposure_ctrl(s, 0);   // Отключить автоэкспозицию
-        s->set_whitebal(s, 0);        // Отключить автобаланс белого
+        s->set_gain_ctrl(s, 0);    // Disable auto image controls for stable color detection  
+        s->set_exposure_ctrl(s, 0);   // Disable auto exposure
+        s->set_whitebal(s, 0);      // Disable auto white balance
     }
     
     return true;

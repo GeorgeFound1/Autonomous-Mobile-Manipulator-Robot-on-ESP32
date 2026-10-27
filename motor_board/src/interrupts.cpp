@@ -3,9 +3,8 @@
 #include "target_search.hpp"
 #include "interrupts.hpp"
 
-
+// Left encoder: compare A/B to detect direction
 void IRAM_ATTR readLeftEncoder() {
-  // Если сигналы на А и B несовпадают, значит крутимся в одну сторону, если разные — в другую
   if (digitalRead(encoderLeftA) != digitalRead(encoderLeftB)) {
     leftTicks--;
   } else {
@@ -13,6 +12,7 @@ void IRAM_ATTR readLeftEncoder() {
   }
 }
 
+// Right encoder: compare A/B to detect direction
 void IRAM_ATTR readRightEncoder() {
   if (digitalRead(encoderRightA) == digitalRead(encoderRightB)) {
     rightTicks--;
@@ -21,6 +21,7 @@ void IRAM_ATTR readRightEncoder() {
   }
 }
 
+// Ultrasonic echo: start timer on HIGH, stop on LOW
 void IRAM_ATTR readUltrasonic() {
   if (digitalRead(ECHO) == HIGH) {
         echoStartTime = micros(); 

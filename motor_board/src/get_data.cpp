@@ -18,6 +18,7 @@ void dataCopy(CameraData *data, TargetData *target) {
     return;
 }
 
+// Read and validate camera packet
 bool dataUnpackage(CameraData *packet) {
 
     while (Serial2.available() > 0 && Serial2.peek() != START_MARKER) {

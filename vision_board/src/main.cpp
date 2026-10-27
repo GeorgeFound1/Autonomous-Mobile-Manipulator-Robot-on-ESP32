@@ -4,6 +4,7 @@
 #include "camera_processing.hpp"
 #include "protocol.hpp"
 
+// Time between packets to robot
 #define SEND_INTERVAL_MS 50
 
 void setup() {
@@ -26,14 +27,17 @@ void loop() {
     static float distance = 0.0f;
     static float angle = 0.0f;
 
+    // Capture one camera frame
     camera_fb_t *fb = esp_camera_fb_get();
     if (!fb) {
         Serial.println("Camera capture failed");
         return;
     }
 
+    // Detection flag: 1 = target found
     uint8_t statusFlag = 0x00;
 
+    // Detect target and calculate distance/angle
     if (setCoords(fb, &distance, &angle)) {
         statusFlag = 0x01;
         Serial.printf("distance = %f, angle = %f\n", distance, angle);
@@ -46,6 +50,7 @@ void loop() {
 
     esp_camera_fb_return(fb);
 
+    // Send packet to robot at fixed rate
     if (millis() - lastSendTime >= SEND_INTERVAL_MS) {
         lastSendTime = millis();
 

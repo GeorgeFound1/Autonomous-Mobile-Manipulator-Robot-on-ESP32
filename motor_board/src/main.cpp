@@ -4,6 +4,7 @@
 #include "interrupts.hpp"
 #include "protocol.hpp"
 #include "target_search.hpp"
+#include "manipulator.hpp"   
 
 volatile long leftTicks = 0;
 volatile long rightTicks = 0;
@@ -13,6 +14,13 @@ volatile unsigned long echoDuration = 0;
 volatile bool newReadingAvailable = false;
 
 #define TIME_TO_GET_PACKET 500
+#define GRAB_SETTLE_MS 5000  
+
+#define REALIGN_GAIN   0.6   
+#define REALIGN_TOL    3.0   
+#define MAX_REALIGN    3     
+
+Manipulator arm;             
 
 void setup() {
   Serial.begin(115200);
@@ -42,10 +50,14 @@ void setup() {
   pinMode(TRIG, OUTPUT);
   attachInterrupt(digitalPinToInterrupt(ECHO), readUltrasonic, CHANGE);
 
+  arm.init();             \
+
   delay(10000);
 }
 
 void loop() {
+
+    //arm.calibrationLoop(); return;
     static RobotDriver myRobot;
     static TargetData lastTarget = {false, 0.0, 0.0};
     static bool finalTurnDone = false;
@@ -54,9 +66,22 @@ void loop() {
     static bool isCorrectingAngle = false;
     static unsigned long correctionStartTime = 0;
 
+    // [ARM]
+    static bool grabPending = false;          
+    static bool grabDone = false;            
+    static unsigned long grabWaitStart = 0;
+    static bool isReturning = false;         
+
+    static bool carryingObject = false;     
+
+    static int realignCount = 0;             
+    static bool movedBack = false;            
+    static double estAngleAfterBack = 0.0;    
+
     const unsigned long LOST_GRACE_PERIOD = 2000;
 
-    float obstacleDistance = myRobot.getDistance();
+    // Ignore sonar while carrying an object
+    float obstacleDistance = carryingObject ? 400.0f : myRobot.getDistance();
     updateTargetData();
 
     static unsigned long lastLog = 0;
@@ -76,6 +101,19 @@ void loop() {
         return;
     }
 
+    if (isReturning) {
+        Serial.println("-> БАЗА ДОСТИГНУТА! Остановка.");
+        myRobot.stop();
+        isReturning = false;
+        grabDone = true;
+        return;
+    }
+
+    if (grabDone) {
+        myRobot.stop();
+        return;
+    }
+
     bool targetInWorkZone = currentTarget.detected &&
                             currentTarget.distance > 0.0 &&
                             currentTarget.distance <= TARGET_MAX_TURN_DISTANCE;
@@ -86,7 +124,83 @@ void loop() {
 
         if (currentTarget.distance > TARGET_STOP_DISTANCE + 5.0) {
             finalTurnDone = false;
+            grabPending = false;
+            realignCount = 0;   
+            movedBack = false;   
         }
+    }
+
+    // Wait before grab, then check distance and align
+    if (grabPending) {
+        myRobot.stop();
+        lastSeenTime = millis();
+
+        if (millis() - grabWaitStart < GRAB_SETTLE_MS) {
+            return;
+        }
+        // If too close, move back to safe distance
+        if (lastTarget.distance > 0.0 && lastTarget.distance < 9.5) {
+            float backDist = 10.0 - lastTarget.distance;
+            Serial.printf("-> Слишком близко (%.1f см < 9.5 см). Отъезд назад на %.1f см до 10.0 см...\n",
+                          lastTarget.distance, backDist);
+
+
+            double a0 = lastTarget.angle * M_PI / 180.0;
+            estAngleAfterBack = atan2(lastTarget.distance * tan(a0), lastTarget.distance + backDist) * 180.0 / M_PI;
+            movedBack = true;
+            realignCount = 0; 
+
+            myRobot.goBack(backDist);
+
+            while (Serial2.available()) {
+                Serial2.read();
+            }
+            currentTarget.detected = false;
+            lastTarget.distance = 10.0; 
+            grabWaitStart = millis();
+            return;
+        }
+
+        // Small turn to aim at target before grab
+        if (realignCount < MAX_REALIGN) {
+            double ang = currentTarget.detected ? currentTarget.angle
+                                                : ((movedBack && realignCount == 0) ? estAngleAfterBack : lastTarget.angle);
+
+            if (fabs(ang) > REALIGN_TOL) {
+                realignCount++;
+                double turnAngle = ang * REALIGN_GAIN;
+                Serial.printf("-> ДОВОРОТ ПЕРЕД ЗАХВАТОМ %d/%d: угол %.1f -> поворот на %.1f град (%s)\n",
+                              realignCount, MAX_REALIGN, ang, turnAngle,
+                              currentTarget.detected ? "по камере" : "расчётный");
+
+                myRobot.letTurn(turnAngle);
+
+                while (Serial2.available()) {
+                    Serial2.read();
+                }
+                currentTarget.detected = false;
+                grabWaitStart = millis();
+                return;
+            }
+        }
+
+        grabPending = false;
+        realignCount = 0;
+        movedBack = false;
+
+        Serial.printf("-> ЗАХВАТ: дистанция до цели %.1f см\n", lastTarget.distance);
+        // Grab object, lift arm, and return to base
+        arm.grabTarget(lastTarget.distance);
+        carryingObject = true;  
+        
+        Serial.println("-> ПОДЪЕМ манипулятора с целью...");
+        arm.resetToBase();
+        
+        Serial.println("-> ВОЗВРАЩЕНИЕ НА БАЗУ (0.0, 0.0)...");
+        myRobot.goToCoords(0.0, 0.0);
+        
+        isReturning = true;
+        return;
     }
 
     if (isCorrectingAngle) {
@@ -117,6 +231,11 @@ void loop() {
 
             myRobot.letTurn(currentTarget.angle);
             lastSeenTime = millis();
+
+            grabPending = true;         
+            realignCount = 0;        
+            movedBack = false;       
+            grabWaitStart = millis();
         }
 
         return;
@@ -135,6 +254,11 @@ void loop() {
 
             myRobot.letTurn(lastTarget.angle);
             lastSeenTime = millis();
+
+            grabPending = true;      
+            realignCount = 0;       
+            movedBack = false;      
+            grabWaitStart = millis();
 
             return;
         }

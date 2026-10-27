@@ -37,6 +37,7 @@ void RobotDriver::startGoStraight(const double distance) {
     motionState = MotionState::GOING_STRAIGHT;
 }
 
+// Drive straight: use encoder difference to correct motors
 void RobotDriver::stepGoStraight(float obstacleDistance) {
   static const double Kp = 7.5;
   static const double Ki = 0.09;
@@ -96,7 +97,7 @@ void RobotDriver::stepGoStraight(float obstacleDistance) {
     unsigned long currentTime = millis();
     double dt = (currentTime - gsLastTime) / 1000.0;
     if (dt == 0) {
-        return; // подождём следующего вызова
+        return; 
     }
 
     double error = (leftTicks - gsStartLeft) - (rightTicks - gsStartRight);
@@ -176,15 +177,15 @@ void RobotDriver::letTurn(const double angle) {
     derivative = (error - lastError) / dt;
 
     outputSpeed = (int)(Kp * error + Kd * derivative);
-    outputSpeed = constrain(outputSpeed, 50, 140);
+    outputSpeed = constrain(outputSpeed, 70, 140);
 
     double syncError = abs(leftTicks - startLeft) - abs(rightTicks - startRight);
 
     int leftSpeed = outputSpeed - (int)(Kp_sync * syncError);
     int rightSpeed = outputSpeed + (int)(Kp_sync * syncError);
 
-    leftSpeed = constrain(leftSpeed, 50, 140);
-    rightSpeed = constrain(rightSpeed, 50, 140);
+    leftSpeed = constrain(leftSpeed, 70, 140);
+    rightSpeed = constrain(rightSpeed, 70, 140);
 
     if (angle > 0) {
       setMotors(-leftSpeed, rightSpeed);
@@ -204,6 +205,7 @@ void RobotDriver::letTurn(const double angle) {
   delay(10);
 }
 
+// Update robot position from encoder ticks
 void RobotDriver::updateOdometry() {
     static long lastLeft = 0;
     static long lastRight = 0;
@@ -235,6 +237,7 @@ void RobotDriver::updateOdometry() {
     while (currentCoords.angle < -180.0) currentCoords.angle += 360.0;
 }
 
+// Turn to target point, then drive straight
 void RobotDriver::goToCoords(const double x1, const double y1) {
     double x0 = currentCoords.x;
     double y0 = currentCoords.y;
@@ -253,4 +256,32 @@ void RobotDriver::goToCoords(const double x1, const double y1) {
 
     Serial.println("Едем к цели...");
     startGoStraight(distance); 
+}
+
+// Drive backward with wheel sync
+void RobotDriver::goBack(double distanceCm) {
+    if (distanceCm <= 0) return;
+
+    const int baseSpeed = 100;
+    const double Kp_sync = 2.0;
+
+    long startL = leftTicks;
+    long startR = rightTicks;
+    long targetTicks = round(distanceCm * fromTicksToCM);
+
+    while ((abs(leftTicks - startL) + abs(rightTicks - startR)) / 2 < targetTicks) {
+        updateOdometry();
+
+        long dL = abs(leftTicks - startL);
+        long dR = abs(rightTicks - startR);
+        int corr = (int)(Kp_sync * (dL - dR));
+
+        int speedL = constrain(baseSpeed - corr, 60, 160);
+        int speedR = constrain(baseSpeed + corr, 60, 160);
+
+        setMotors(-speedL, -speedR);
+        delay(5);
+    }
+
+    stop();
 }
