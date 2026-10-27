@@ -80,15 +80,15 @@ The project is split into two separate firmwares:
 
 1. **Vision Node (`vision_board`):**
    * Continuously captures frames from the OV2640 sensor.
-   * Scans pixel rows and columns for target color thresholds[cite: 9].
-   * Packages object status, estimated distance, and angle into a binary struct and sends it over UART[cite: 8].
+   * Scans pixel rows and columns for target color thresholds.
+   * Packages object status, estimated distance, and angle into a binary struct and sends it over UART.
 
 2. **Main Controller (`motor_board`):**
-   * `protocol.hpp / get_data.cpp`: Unpacks and verifies UART packets using XOR checksum[cite: 1, 8].
-   * `interrupts.cpp`: Handles high-speed encoder pulse counters and sonar echo timing[cite: 2].
-   * `movement.cpp / movement.hpp`: Runs the odometry equations, PID wheel speed balancing, turning routines, and coordinate navigation (`goToCoords`)[cite: 5, 7].
-   * `manipulator.cpp / manipulator.hpp`: Solves 2D inverse kinematics, checks physical joint limits, and drives servos via hardware PWM channels[cite: 4].
-   * `main.cpp`: Manages overall robot behavior, transitions between searching, staged approaching, alignment, object lifting, and returning home[cite: 3].
+   * `protocol.hpp / get_data.cpp`: Unpacks and verifies UART packets using XOR checksum.
+   * `interrupts.cpp`: Handles high-speed encoder pulse counters and sonar echo timing.
+   * `movement.cpp / movement.hpp`: Runs the odometry equations, PID wheel speed balancing, turning routines, and coordinate navigation (`goToCoords`).
+   * `manipulator.cpp / manipulator.hpp`: Solves 2D inverse kinematics, checks physical joint limits, and drives servos via hardware PWM channels.
+   * `main.cpp`: Manages overall robot behavior, transitions between searching, staged approaching, alignment, object lifting, and returning home.
 
 ---
 
@@ -100,11 +100,11 @@ The project is split into two separate firmwares:
 
 ### Calibration & Configuration
 Before running the robot, check the physical dimensions in `motor_board/src/manipulator.hpp`:
-* `L1`: Shoulder link length in cm[cite: 4].
-* `L_FOREARM`: Forearm link length in cm[cite: 4].
-* `L_CLAW`: Claw length to the center of the grip[cite: 4].
-* `CAM_TO_SHOULDER_OFFSET`: Horizontal distance between camera lens and shoulder axis[cite: 4].
-* `REACH_OFFSET`: Fine-tuning reach offset to adjust grip depth[cite: 4].
+* `L1`: Shoulder link length in cm.
+* `L_FOREARM`: Forearm link length in cm.
+* `L_CLAW`: Claw length to the center of the grip.
+* `CAM_TO_SHOULDER_OFFSET`: Horizontal distance between camera lens and shoulder axis.
+* `REACH_OFFSET`: Fine-tuning reach offset to adjust grip depth.
 
 ### Flashing
 1. **Flash ESP32-CAM:**
